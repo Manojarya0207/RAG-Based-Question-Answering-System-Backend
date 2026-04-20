@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: rag-qa-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: OPENAI_API_KEY
+        sync: false # User must set this in dashboard
+      - key: PYTHON_VERSION
+        value: 3.10.0
