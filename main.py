@@ -1,7 +1,7 @@
 import os
 import uuid
 import time
-from fastapi import FastAPI, UploadFile, File, BackgroundTask, HTTPException
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -67,7 +67,7 @@ def process_document_background(doc_id: str, file_path: str, filename: str):
             documents_db[doc_id].status = "failed"
 
 @app.post("/upload", response_model=DocumentResponse)
-async def upload_document(background_tasks: BackgroundTask, file: UploadFile = File(...)):
+async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     if not file.filename.endswith(('.pdf', '.txt')):
         raise HTTPException(status_code=400, detail="Only PDF and TXT files are supported.")
     
