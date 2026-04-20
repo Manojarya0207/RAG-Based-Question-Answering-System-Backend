@@ -23,10 +23,18 @@ class IngestionService:
 
     def _extract_from_pdf(self, file_path: str) -> str:
         text = ""
-        with open(file_path, 'rb') as f:
-            reader = PyPDF2.PdfReader(f)
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
+        try:
+            with open(file_path, 'rb') as f:
+                reader = PyPDF2.PdfReader(f)
+                for page in reader.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        text += extracted + "\n"
+        except Exception as e:
+            raise ValueError(f"Failed to read PDF: {str(e)}")
+            
+        if not text.strip():
+            raise ValueError("No text could be extracted from this PDF. It might be a scanned image or protected.")
         return text
 
     def _extract_from_txt(self, file_path: str) -> str:

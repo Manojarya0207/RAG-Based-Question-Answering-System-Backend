@@ -7,6 +7,9 @@ from typing import List, Dict, Any
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from models import QueryRequest, QueryResponse, DocumentResponse, SourceChunk, DocumentMetadata
 from services.ingestion_service import IngestionService
@@ -148,6 +151,33 @@ async def query_documents(request: QueryRequest, req: Any): # req needed for lim
     ]
     
     return QueryResponse(answer=answer, sources=sources)
+
+@app.get("/debug/config")
+async def debug_config():
+    """
+    Exposes non-sensitive configuration for debugging.
+    """
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "not set"
+    
+    return {
+        "openai_api_key_status": "set" if api_key else "missing",
+        "openai_api_key_preview": masked_key,
+        "upload_dir_exists": os.path.exists(UPLOAD_DIR),
+        "upload_dir_writable": os.access(UPLOAD_DIR, os.W_OK) if os.path.exists(UPLOAD_DIR) else False,
+        "current_time": time.time()
+    }
+
+@app.get("/debug/test-openai")
+async def test_openai():
+    """
+    Tests OpenAI connectivity by requesting a single embedding.
+    """
+    try:
+        embedding_service.encode_query("test connection")
+        return {"status": "success", "message": "Successfully connected to OpenAI Embeddings API"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
