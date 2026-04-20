@@ -62,9 +62,11 @@ def process_document_background(doc_id: str, file_path: str, filename: str):
         
         documents_db[doc_id].status = "ready"
     except Exception as e:
-        print(f"Error processing document {doc_id}: {str(e)}")
+        error_msg = str(e)
+        print(f"Error processing document {doc_id}: {error_msg}")
         if doc_id in documents_db:
             documents_db[doc_id].status = "failed"
+            documents_db[doc_id].error = error_msg
 
 @app.post("/upload", response_model=DocumentResponse)
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
@@ -93,7 +95,11 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
 async def get_status(doc_id: str):
     if doc_id not in documents_db:
         raise HTTPException(status_code=404, detail="Document not found")
-    return {"status": documents_db[doc_id].status}
+    doc = documents_db[doc_id]
+    return {
+        "status": doc.status,
+        "error": doc.error if doc.status == "failed" else None
+    }
 
 @app.get("/documents", response_model=List[DocumentMetadata])
 async def list_documents():

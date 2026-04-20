@@ -25,4 +25,5 @@ class DocumentMetadata(BaseModel):
     id: str
     filename: str
     status: str # pending, processing, ready, failed
+    error: Optional[str] = None
     created_at: float
