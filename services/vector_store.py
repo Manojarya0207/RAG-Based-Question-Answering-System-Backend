@@ -8,7 +8,7 @@ class VectorStore:
     def __init__(self, index_path: str = "data/faiss_index.bin", metadata_path: str = "data/metadata.json"):
         self.index_path = index_path
         self.metadata_path = metadata_path
-        self.dimension = 384  # MiniLM-L6-v2 dimension
+        self.dimension = 1536  # OpenAI text-embedding-3-small dimension
         
         # Ensure data directory exists
         os.makedirs(os.path.dirname(self.index_path), exist_ok=True)

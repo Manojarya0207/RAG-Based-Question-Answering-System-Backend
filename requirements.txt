@@ -2,7 +2,6 @@ fastapi
 uvicorn
 pydantic
 PyPDF2
-sentence-transformers
 faiss-cpu
 openai
 slowapi
