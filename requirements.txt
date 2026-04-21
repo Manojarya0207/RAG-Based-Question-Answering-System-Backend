@@ -8,3 +8,5 @@ slowapi
 python-dotenv
 python-multipart
 httpx
+sqlalchemy
+tiktoken
