@@ -67,9 +67,15 @@ def process_document_background(doc_id: str, file_path: str, filename: str):
         # 3. Add to Vector Store
         vector_store.add_documents(embeddings, chunks_metadata)
         
-        # 4. Generate Summary (NEW FEATURE)
-        full_text = " ".join(texts[:5]) # Use first 5 chunks for summary
-        summary = llm_service.summarize_document(full_text)
+        # 4. Generate Summary (IMPROVED)
+        # Sample more strategically: Start, Middle, and End
+        if len(texts) > 5:
+            indices = [0, len(texts)//4, len(texts)//2, 3*len(texts)//4, len(texts)-1]
+            summary_context = " ".join([texts[i] for i in sorted(list(set(indices)))])
+        else:
+            summary_context = " ".join(texts)
+            
+        summary = llm_service.summarize_document(summary_context)
         doc_record.summary = summary
         
         doc_record.status = "ready"
@@ -147,6 +153,28 @@ async def delete_document(doc_id: str, db: Session = Depends(get_db)):
     
     return {"status": "deleted"}
 
+@app.get("/documents/{doc_id}/file")
+async def get_document_file(doc_id: str, db: Session = Depends(get_db)):
+    """
+    Serves the original document file (PDF or TXT).
+    """
+    doc = db.query(DocumentModel).filter(DocumentModel.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    # Reconstruct filename used in upload
+    # Search for files starting with doc_id in UPLOAD_DIR
+    files = [f for f in os.listdir(UPLOAD_DIR) if f.startswith(doc_id)]
+    if not files:
+        raise HTTPException(status_code=404, detail="Original file not found on server")
+        
+    file_path = os.path.join(UPLOAD_DIR, files[0])
+    
+    # Determine media type
+    media_type = "application/pdf" if doc.filename.lower().endswith(".pdf") else "text/plain"
+    
+    return FileResponse(file_path, media_type=media_type, filename=doc.filename)
+
 @app.post("/query", response_model=QueryResponse)
 @limiter.limit("10/minute")
 async def query_documents(query_data: QueryRequest, request: Request, db: Session = Depends(get_db)): 
@@ -209,6 +237,14 @@ async def clear_history(db: Session = Depends(get_db)):
     db.query(ChatMessageModel).delete()
     db.commit()
     return {"status": "history cleared"}
+
+@app.get("/history")
+async def get_history(db: Session = Depends(get_db)):
+    """
+    Fetches the full chat history.
+    """
+    history_records = db.query(ChatMessageModel).order_by(ChatMessageModel.timestamp.asc()).all()
+    return [{"role": h.role, "content": h.content, "timestamp": h.timestamp} for h in history_records]
 
 @app.get("/debug/config")
 async def debug_config():

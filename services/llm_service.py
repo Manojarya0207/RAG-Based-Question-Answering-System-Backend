@@ -30,7 +30,7 @@ class LLMService:
         context_text = "\n\n---\n\n".join(context_chunks)
         
         messages = [
-            {"role": "system", "content": "You are a specialized RAG assistant. Answer the user's question based ONLY on the provided context. If the answer is not in the context, say 'I don't have enough information in the uploaded documents to answer this question.'"}
+            {"role": "system", "content": "You are Antigravity, a helpful and friendly RAG assistant. Your primary goal is to answer questions using the provided document context. If the user greets you or asks general conversational questions, be warm and engaging. If you cannot find the answer in the context but the query is a general knowledge question, feel free to use your own knowledge to help, but mention when the information is not from the uploaded documents."}
         ]
         
         # Add history if provided (limit to last 5 messages for token efficiency)
@@ -38,12 +38,17 @@ class LLMService:
             messages.extend(history[-5:])
             
         # Add context and current question
-        prompt = f"""Context:
+        if context_chunks:
+            prompt = f"""Use the following pieces of context to answer the user's question. 
+Context:
 {context_text}
 
 Question: {question}
 
 Answer:"""
+        else:
+            prompt = question # Fallback to direct query for friendly chat if no context exists
+
         messages.append({"role": "user", "content": prompt})
 
         try:
