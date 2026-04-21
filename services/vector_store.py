@@ -31,17 +31,17 @@ class VectorStore:
 
     def search(self, query_vector: np.ndarray, top_k: int = 5, doc_id: Optional[str] = None) -> List[Dict[ Any, Any]]:
         """
-        Searches for the most similar chunks. Optionally filters by doc_id.
+        Searches for the most similar chunks.
+        Filters out markers for deleted documents.
         """
         if self.index.ntotal == 0 or not self.metadata:
             return []
 
-        # FAISS search
         if len(query_vector.shape) == 1:
             query_vector = query_vector.reshape(1, -1)
             
-        # We search for more than top_k to allow for filtering of deleted docs
-        search_k = min(self.index.ntotal, top_k * 5)
+        # Search for enough results to account for deleted items
+        search_k = min(self.index.ntotal, top_k * 10)
         distances, indices = self.index.search(query_vector, search_k)
         
         results = []
@@ -51,6 +51,10 @@ class VectorStore:
                 
             meta = self.metadata[idx]
             
+            # Skip deleted chunks
+            if meta.get('deleted'):
+                continue
+                
             # If doc_id filter is provided, skip mismatches
             if doc_id and meta['doc_id'] != doc_id:
                 continue
@@ -70,19 +74,16 @@ class VectorStore:
 
     def delete_document(self, doc_id: str):
         """
-        Deletes all chunks associated with a doc_id.
-        Since we don't store original embeddings to rebuild the index perfectly, 
-        we mark the metadata entries as 'deleted' to ignore them in future searches.
+        Marks all chunks associated with a doc_id as deleted.
+        This keeps the metadata list indices stable and aligned with the FAISS index.
         """
-        # For simplicity in this v1, we rebuild a map and just filter out the doc
-        initial_count = len(self.metadata)
-        self.metadata = [m for m in self.metadata if m['doc_id'] != doc_id]
+        found = False
+        for meta in self.metadata:
+            if meta['doc_id'] == doc_id:
+                meta['deleted'] = True
+                found = True
         
-        if len(self.metadata) < initial_count:
-            # We also clear the index to prevent mapping to now-invalid metadata indices
-            # Realistically, for persistence we would need to re-index all remaining docs.
-            # Here we just save the updated metadata. 
-            # NOTE: If we really wanted to fix the index perfectly, we'd need to store vectors separately.
+        if found:
             self._save()
 
     def _save(self):
