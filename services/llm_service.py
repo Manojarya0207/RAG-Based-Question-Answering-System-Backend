@@ -8,7 +8,11 @@ load_dotenv()
 class LLMService:
     def __init__(self):
         self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
+        self.mock_mode = os.getenv("MOCK_MODE", "false").lower() == "true"
+        
+        if self.mock_mode:
+            print("LLMService running in MOCK_MODE")
+        elif not self.api_key:
             # We don't raise error here yet, but will fail on call if not set
             print("Warning: OPENAI_API_KEY not found in environment")
         self.client = OpenAI(api_key=self.api_key)
@@ -17,6 +21,9 @@ class LLMService:
         """
         Generates an answer using OpenAI GPT based on the provided context.
         """
+        if self.mock_mode:
+            return f"Mock Answer: I have found information about '{question}' in the uploaded documents. The context contains {len(context_chunks)} relevant chunks."
+
         if not self.api_key:
             return "Error: OpenAI API key not configured. Please add it to your .env file."
 

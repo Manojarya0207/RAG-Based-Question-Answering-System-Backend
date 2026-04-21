@@ -13,8 +13,13 @@ class EmbeddingService:
         """
         self.model = model
         self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
+        self.mock_mode = os.getenv("MOCK_MODE", "false").lower() == "true"
+        
+        if self.mock_mode:
+            print("EmbeddingService running in MOCK_MODE")
+        elif not self.api_key:
             print("Warning: OPENAI_API_KEY not found for EmbeddingService")
+        
         self.client = OpenAI(api_key=self.api_key)
 
     def encode(self, texts: List[str], batch_size: int = 100) -> np.ndarray:
@@ -22,6 +27,10 @@ class EmbeddingService:
         Encodes a list of texts into embeddings using OpenAI API with batching.
         Returns a numpy array of shape (len(texts), 1536).
         """
+        if self.mock_mode:
+            # Generate random but consistent embeddings for testing
+            return np.random.rand(len(texts), 1536).astype('float32')
+
         # Filter out empty or whitespace-only strings
         texts = [t if (t and t.strip()) else "empty chunk" for t in texts]
         
@@ -50,6 +59,9 @@ class EmbeddingService:
         """
         Encodes a single query string into a 1D embedding vector.
         """
+        if self.mock_mode:
+            return np.random.rand(1536).astype('float32')
+            
         if not query or not query.strip():
             query = "empty query"
             

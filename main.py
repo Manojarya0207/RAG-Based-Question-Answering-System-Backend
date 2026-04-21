@@ -1,7 +1,7 @@
 import os
 import uuid
 import time
-from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -123,12 +123,12 @@ async def delete_document(doc_id: str):
 
 @app.post("/query", response_model=QueryResponse)
 @limiter.limit("10/minute")
-async def query_documents(request: QueryRequest, req: Any): # req needed for limiter
+async def query_documents(query_data: QueryRequest, request: Request): 
     # 1. Embed query
-    query_vector = embedding_service.encode_query(request.question)
+    query_vector = embedding_service.encode_query(query_data.question)
     
     # 2. Search vector store
-    search_results = vector_store.search(query_vector, top_k=request.top_k, doc_id=request.document_id)
+    search_results = vector_store.search(query_vector, top_k=query_data.top_k, doc_id=query_data.document_id)
     
     if not search_results:
         return QueryResponse(
@@ -138,7 +138,7 @@ async def query_documents(request: QueryRequest, req: Any): # req needed for lim
     
     # 3. Generate answer
     context_chunks = [r['text'] for r in search_results]
-    answer = llm_service.generate_answer(request.question, context_chunks)
+    answer = llm_service.generate_answer(query_data.question, context_chunks)
     
     # 4. Prepare sources
     sources = [
