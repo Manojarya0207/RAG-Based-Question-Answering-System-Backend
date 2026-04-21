@@ -3,6 +3,7 @@ import uuid
 import time
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from typing import List, Dict, Any
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
