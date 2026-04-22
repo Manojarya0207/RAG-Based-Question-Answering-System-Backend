@@ -3,7 +3,7 @@ import uuid
 import time
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from typing import List, Dict, Any
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -45,6 +45,21 @@ llm_service = LLMService()
 UPLOAD_DIR = "data/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+@app.get("/")
+async def root():
+    return JSONResponse(
+        {
+            "message": "RAG Backend is running",
+            "docs": "/docs",
+            "redoc": "/redoc",
+        }
+    )
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    # Avoid noisy browser 404 logs when no favicon is configured.
+    return Response(status_code=204)
+
 def process_document_background(doc_id: str, file_path: str, filename: str):
     """
     Background task to process uploaded documents and generate summary.
@@ -62,7 +77,9 @@ def process_document_background(doc_id: str, file_path: str, filename: str):
         chunks_metadata = ingestion_service.process_document(file_path, doc_id, filename)
         
         # 2. Embed
-        texts = [c['text'] for c in chunks_metadata]
+        texts = [c["text"] for c in chunks_metadata if c.get("text")]
+        if not texts:
+            raise ValueError("No content chunks were generated from the document.")
         embeddings = embedding_service.encode(texts)
         
         # 3. Add to Vector Store
@@ -94,11 +111,15 @@ def process_document_background(doc_id: str, file_path: str, filename: str):
 
 @app.post("/upload", response_model=DocumentResponse)
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Uploaded file must have a filename.")
+
     if not file.filename.endswith(('.pdf', '.txt')):
         raise HTTPException(status_code=400, detail="Only PDF and TXT files are supported.")
     
     doc_id = str(uuid.uuid4())
-    file_path = os.path.join(UPLOAD_DIR, f"{doc_id}_{file.filename}")
+    safe_filename = os.path.basename(file.filename)
+    file_path = os.path.join(UPLOAD_DIR, f"{doc_id}_{safe_filename}")
     
     with open(file_path, "wb") as buffer:
         buffer.write(await file.read())
@@ -106,16 +127,16 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
     # Save to SQLite
     new_doc = DocumentModel(
         id=doc_id,
-        filename=file.filename,
+        filename=safe_filename,
         status="pending",
         created_at=time.time()
     )
     db.add(new_doc)
     db.commit()
     
-    background_tasks.add_task(process_document_background, doc_id, file_path, file.filename)
+    background_tasks.add_task(process_document_background, doc_id, file_path, safe_filename)
     
-    return DocumentResponse(document_id=doc_id, status="pending", filename=file.filename)
+    return DocumentResponse(document_id=doc_id, status="pending", filename=safe_filename)
 
 @app.get("/status/{doc_id}")
 async def get_status(doc_id: str, db: Session = Depends(get_db)):

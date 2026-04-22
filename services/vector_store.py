@@ -15,8 +15,12 @@ class VectorStore:
         
         if os.path.exists(self.index_path):
             self.index = faiss.read_index(self.index_path)
-            with open(self.metadata_path, 'r') as f:
-                self.metadata = json.load(f)
+            if os.path.exists(self.metadata_path):
+                with open(self.metadata_path, 'r') as f:
+                    self.metadata = json.load(f)
+            else:
+                # Keep service bootable if index exists but metadata is missing.
+                self.metadata = []
         else:
             self.index = faiss.IndexFlatL2(self.dimension)
             self.metadata = [] # List of { "text": str, "doc_id": str, "filename": str, "chunk_index": int }
