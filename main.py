@@ -210,13 +210,7 @@ async def query_documents(query_data: QueryRequest, request: Request, db: Sessio
     # 3. Search vector store
     search_results = vector_store.search(query_vector, top_k=query_data.top_k, doc_id=query_data.document_id)
     
-    if not search_results:
-        return QueryResponse(
-            answer="I couldn't find any relevant information in the uploaded documents.",
-            sources=[]
-        )
-    
-    # 4. Generate answer with history
+    # 4. Generate answer with history (even if no search results, to allow general chat/greetings)
     context_chunks = [r['text'] for r in search_results]
     answer = llm_service.generate_answer(query_data.question, context_chunks, history=history)
     
